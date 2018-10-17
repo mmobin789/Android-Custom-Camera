@@ -257,6 +257,11 @@ class Camera2(private val textureView: TextureView) {
             }
         }
     }
+    
+    interface OnPictureListener
+    {
+        fun onPictureTaken(bitmap:Bitmap)
+    }
     // Use below method if you encounter stretched camera problem.
     // While there is no absolute guarantee that the primal code ensures most use-cases. Some devices can face this problem upon rendition.
 
