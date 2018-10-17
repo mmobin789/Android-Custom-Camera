@@ -1,4 +1,4 @@
-package android.mystuff.com.mystuff.ui.home.camera
+
 
 import android.Manifest
 import android.content.Context
@@ -243,7 +243,7 @@ class Camera2(private val textureView: TextureView) {
 
     fun isFlashEnabled() = isFlashEnabled && cameraFacing == CameraCharacteristics.LENS_FACING_BACK
 
-    fun takePhoto(onPictureListener: CustomCameraContract.OnPictureListener) {
+    fun takePhoto(onPictureListener: OnPictureListener) {
         launchFlash()
         lockPreview()
 
