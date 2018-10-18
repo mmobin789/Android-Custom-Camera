@@ -77,7 +77,7 @@ class Camera2(private val textureView: TextureView) {
 
     }
 
-    fun onPauseOrOnStop() {
+    fun close() {
         closeCamera()
         closeBackgroundThread()
 
