@@ -57,7 +57,7 @@ class Camera2(private val textureView: TextureView) {
                 if (cameraFacing == this.cameraFacing) {
                     val streamConfigurationMap = cameraCharacteristics.get(
                             CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                    previewSize = streamConfigurationMap.getOutputSizes(SurfaceTexture::class.java)[0]
+                    previewSize = streamConfigurationMap!!.getOutputSizes(SurfaceTexture::class.java)[0]
                     this.cameraId = cameraId
                 }
             }
