@@ -19,7 +19,7 @@ object Converters {
     }
      // This subscription needs to be disposed off to release the system resources primarily held for purpose.
 
-    @JvmStatic
+    @JvmStatic   // this annotation is required for caller class written in Java to recognize this method as static
     fun convertBitmapToFile(bitmap: Bitmap, onBitmapConvertListener: OnBitmapConvertListener): Disposable {
         return Observable.just(bitmap).subscribeOn(Schedulers.io())
                 .subscribe({
