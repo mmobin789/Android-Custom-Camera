@@ -1,15 +1,14 @@
-
-
 import android.graphics.Bitmap
 import android.os.Environment
 import android.util.Log
-import io.reactivex.Observable
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import io.reactivex.Single
+import io.reactivex.android.schedulers.AndroidSchedulers
 
 object Converters {
 
@@ -21,11 +20,13 @@ object Converters {
 
     @JvmStatic   // this annotation is required for caller class written in Java to recognize this method as static
     fun convertBitmapToFile(bitmap: Bitmap, onBitmapConvertListener: OnBitmapConvertListener): Disposable {
-        return Observable.just(bitmap).subscribeOn(Schedulers.io())
+        return Single.fromCallable{
+            compressBitmap(it)!!
+        }.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
                 .subscribe({
-                    val file = compressBitmap(it)!!
-                    Log.i("convertedPicturePath", file.path)
-                    onBitmapConvertListener.onBitmapConverted(file)
+       
+                    Log.i("convertedPicturePath", it.path)
+                    onBitmapConvertListener.onBitmapConverted(it)
                 }, { it.printStackTrace() })
     }
 
