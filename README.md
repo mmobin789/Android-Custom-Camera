@@ -5,7 +5,7 @@ It simplifies the existing implementation.
 
 ## Features
  - Easy to use.
- - Supports Flash,photo capture and saving to storage by default.
+ - Supports flash,photo capture and saving to storage by default.
  - Its not a fixed dependency to be included in your project to increase redundancy.
  - Its flexible to be converted in any library/SDK or modular form as per your requirement.
  - Modifications/Enhancements can be made as required.
