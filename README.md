@@ -17,3 +17,8 @@ It simplifies the existing implementation.
    You need to integrate it in your Activity or Fragment. 
   
    For details read more on [medium](https://medium.com/@mmobinbutt/camera-2-api-for-android-2dc3168b29a9).
+   
+   
+### Usage in Live Android Apps
+    
+ :camera: [HideBox](https://play.google.com/store/apps/details?id=com.hidebox.mobileapp) 
