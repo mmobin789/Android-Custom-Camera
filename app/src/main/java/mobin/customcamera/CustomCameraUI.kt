@@ -14,10 +14,7 @@ import mobin.ui.R
 
 class CustomCameraUI : AppCompatActivity() {
 
-    // private lateinit var cameraPreview: CameraPreview
     private lateinit var camera2: Camera2
-//    @Inject
-//    lateinit var mPresenter: CustomCameraPresenter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,12 +23,6 @@ class CustomCameraUI : AppCompatActivity() {
     }
 
     private fun init() {
-
-        // initCameraApi()
-        //  activityComponent.inject(this)
-
-
-        //  textView_skip.visibility = View.GONE
 
         if (ContextCompat.checkSelfPermission(
                 this,
@@ -94,10 +85,6 @@ class CustomCameraUI : AppCompatActivity() {
             iv_camera_flash_auto.alpha = 0.4f
 
         }
-
-//        iv_gallery.setOnClickListener {
-//            pickFromGallery()
-//        }
 
     }
 
