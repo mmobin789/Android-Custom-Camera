@@ -1,7 +1,6 @@
-# Android Camera 2 API
+# Android Custom Camera
 :camera:
-Source code for custom and modifiable wrapper around android camera 2 API.
-It simplifies the existing implementation.
+Source code for a custom camera activity and modifiable wrapper around android camera 2 API to simplify usage.
 
 ## Features
  - Easy to use.
@@ -14,8 +13,8 @@ It simplifies the existing implementation.
  - **It would be a part of your project while not implying any 3rd-party involvement.**
 
 ### How to use ?
-   
-   You need to integrate it in your Activity or Fragment. 
+
+   Just clone the project in Android Studio and run it.
   
    For details read more on [medium](https://medium.com/@mmobinbutt/camera-2-api-for-android-2dc3168b29a9).
    
