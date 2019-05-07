@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import kotlinx.android.synthetic.main.activity_custom_camera_ui.*
 import mobin.customcamera.core.Camera2
+import mobin.customcamera.core.Converters
 import mobin.ui.R
 
 class CustomCameraUI : AppCompatActivity() {
@@ -32,11 +33,19 @@ class CustomCameraUI : AppCompatActivity() {
 
         //  textView_skip.visibility = View.GONE
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        )
+
             initCamera2Api()
         else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-                requestPermissions(arrayOf(Manifest.permission.CAMERA), 3)
+                requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE), 3)
             else initCamera2Api()
 
         }
@@ -45,17 +54,18 @@ class CustomCameraUI : AppCompatActivity() {
 
     private fun initCamera2Api() {
 
-        camera2 = Camera2(this,camera_view)
+        camera2 = Camera2(this, camera_view)
 
         iv_rotate_camera.setOnClickListener {
             camera2.switchCamera()
         }
 
         iv_capture_image.setOnClickListener { v ->
-            v.isEnabled = false
             camera2.takePhoto {
-                Toast.makeText(v.context, "Picture Taken !!", Toast.LENGTH_SHORT).show()
-                v.isEnabled = true
+                Toast.makeText(v.context, "Saving Picture", Toast.LENGTH_SHORT).show()
+                Converters.convertBitmapToFile(it) { file ->
+                    Toast.makeText(v.context, "Saved Picture Path ${file.path}", Toast.LENGTH_SHORT).show()
+                }
 
             }
 

@@ -4,40 +4,27 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.*
+import android.graphics.Matrix.ScaleToFit
 import android.hardware.camera2.*
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Looper
 import android.util.Log
 import android.util.Size
+import android.util.SparseIntArray
 import android.view.Surface
 import android.view.TextureView
 import androidx.core.content.ContextCompat
 import java.util.*
 import java.util.Collections.singletonList
 import kotlin.Comparator
-import android.R.attr.y
-import android.R.attr.x
-import android.opengl.ETC1.getWidth
-import android.opengl.ETC1.getHeight
-import android.R.attr.orientation
-import android.content.res.Configuration
-import java.nio.file.Files.size
-import android.R.attr.maxHeight
-import android.R.attr.maxWidth
-import android.opengl.ETC1.getHeight
-import android.opengl.ETC1.getWidth
-import android.opengl.ETC1.getWidth
-import android.opengl.ETC1.getHeight
-import android.graphics.Matrix.ScaleToFit
-import android.R.attr.centerY
-import android.R.attr.centerX
-import android.graphics.*
 
 
 class Camera2(private val activity: Activity, private val textureView: AutoFitTextureView) {
 
-    private var onBitmapReady: (Bitmap?) -> Unit = {}
+    private var onBitmapReady: (Bitmap) -> Unit = {}
     private val cameraManager: CameraManager =
         textureView.context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var cameraFacing = CameraCharacteristics.LENS_FACING_BACK
@@ -148,6 +135,15 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
         private const val STATE_PICTURE_TAKEN = 4
 
 
+        private val ORIENTATIONS = SparseIntArray()
+
+        init {
+            ORIENTATIONS.append(Surface.ROTATION_0, 90)
+            ORIENTATIONS.append(Surface.ROTATION_90, 0)
+            ORIENTATIONS.append(Surface.ROTATION_180, 270)
+            ORIENTATIONS.append(Surface.ROTATION_270, 180)
+        }
+
         /**
          * Max preview width that is guaranteed by Camera2 API
          */
@@ -157,6 +153,69 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
          * Max preview height that is guaranteed by Camera2 API
          */
         private const val MAX_PREVIEW_HEIGHT = 1080
+
+
+        // Flag to check if camera capture sessions is closed.
+
+        //  private var cameraSessionClosed = false
+
+
+        /**
+         * Given {@code choices} of {@code Size}s supported by a camera, choose the smallest one that
+         * is at least as large as the respective texture view size, and that is at most as large as the
+         * respective max size, and whose aspect ratio matches with the specified value. If such size
+         * doesn't exist, choose the largest one that is at most as large as the respective max size,
+         * and whose aspect ratio matches with the specified value.
+         *
+         * @param choices           The list of sizes that the camera supports for the intended output
+         *                          class
+         * @param textureViewWidth  The width of the texture view relative to sensor coordinate
+         * @param textureViewHeight The height of the texture view relative to sensor coordinate
+         * @param maxWidth          The maximum width that can be chosen
+         * @param maxHeight         The maximum height that can be chosen
+         * @param aspectRatio       The aspect ratio
+         * @return The optimal {@code Size}, or an arbitrary one if none were big enough
+         */
+        private fun chooseOptimalSize(
+            choices: Array<Size>, textureViewWidth: Int,
+            textureViewHeight: Int, maxWidth: Int, maxHeight: Int, aspectRatio: Size
+        ): Size {
+
+            // Collect the supported resolutions that are at least as big as the preview Surface
+            val bigEnough = arrayListOf<Size>()
+            // Collect the supported resolutions that are smaller than the preview Surface
+            val notBigEnough = arrayListOf<Size>()
+            val w = aspectRatio.width
+            val h = aspectRatio.height
+            for (option in choices) {
+                if (option.width <= maxWidth && option.height <= maxHeight &&
+                    option.height == option.width * h / w
+                ) {
+                    if (option.width >= textureViewWidth && option.height >= textureViewHeight) {
+                        bigEnough.add(option)
+                    } else {
+                        notBigEnough.add(option)
+                    }
+                }
+            }
+
+            // Pick the smallest of those big enough. If there is no one big enough, pick the
+            // largest of those not big enough.
+
+            return when {
+                bigEnough.isNotEmpty() -> Collections.min(bigEnough, compareSizesByArea)
+                notBigEnough.isNotEmpty() -> Collections.max(notBigEnough, compareSizesByArea)
+                else -> {
+                    Log.e("Camera", "Couldn't find any suitable preview size")
+                    choices[0]
+                }
+            }
+        }
+
+        private val compareSizesByArea = Comparator<Size> { lhs, rhs ->
+            // We cast here to ensure the multiplications won't overflow
+            java.lang.Long.signum(lhs.width.toLong() * lhs.height - rhs.width.toLong() * rhs.height)
+        }
 
     }
 
@@ -185,6 +244,20 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
         }
     }
 
+    private val cameraStateCallback = object : CameraDevice.StateCallback() {
+        override fun onOpened(camera: CameraDevice) {
+            this@Camera2.cameraDevice = camera
+            createPreviewSession()
+        }
+
+        override fun onDisconnected(camera: CameraDevice) {
+            camera.close()
+            this@Camera2.cameraDevice = null
+        }
+
+        override fun onError(camera: CameraDevice, error: Int) {
+        }
+    }
 
 //    private fun setupCamera() {
 //        try {
@@ -228,6 +301,7 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
         if (cameraCaptureSession != null) {
             cameraCaptureSession!!.close()
             cameraCaptureSession = null
+            //   cameraSessionClosed = true
         }
 
         if (cameraDevice != null) {
@@ -255,21 +329,7 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
             setUpCameraOutputs(width, height)
             configureTransform(width, height)
 
-            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
-                override fun onOpened(camera: CameraDevice) {
-                    this@Camera2.cameraDevice = camera
-                    createPreviewSession()
-                }
-
-                override fun onDisconnected(camera: CameraDevice) {
-                    camera.close()
-                    this@Camera2.cameraDevice = null
-                }
-
-                override fun onError(camera: CameraDevice, error: Int) {
-                }
-
-            }, backgroundHandler)
+            cameraManager.openCamera(cameraId, cameraStateCallback, backgroundHandler)
 
 
         } else Log.e("Camera2", "Requires Camera Permission")
@@ -412,62 +472,20 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
         textureView.setTransform(matrix)
     }
 
-    private val compareSizesByArea = Comparator<Size> { lhs, rhs ->
-        // We cast here to ensure the multiplications won't overflow
-        java.lang.Long.signum(lhs.width.toLong() * lhs.height - rhs.width.toLong() * rhs.height)
-    }
-
     /**
-     * Given {@code choices} of {@code Size}s supported by a camera, choose the smallest one that
-     * is at least as large as the respective texture view size, and that is at most as large as the
-     * respective max size, and whose aspect ratio matches with the specified value. If such size
-     * doesn't exist, choose the largest one that is at most as large as the respective max size,
-     * and whose aspect ratio matches with the specified value.
+     * Retrieves the JPEG orientation from the specified screen rotation.
      *
-     * @param choices           The list of sizes that the camera supports for the intended output
-     *                          class
-     * @param textureViewWidth  The width of the texture view relative to sensor coordinate
-     * @param textureViewHeight The height of the texture view relative to sensor coordinate
-     * @param maxWidth          The maximum width that can be chosen
-     * @param maxHeight         The maximum height that can be chosen
-     * @param aspectRatio       The aspect ratio
-     * @return The optimal {@code Size}, or an arbitrary one if none were big enough
+     * @param rotation The screen rotation.
+     * @return The JPEG orientation (one of 0, 90, 270, and 360)
      */
-    private fun chooseOptimalSize(
-        choices: Array<Size>, textureViewWidth: Int,
-        textureViewHeight: Int, maxWidth: Int, maxHeight: Int, aspectRatio: Size
-    ): Size {
+    private fun getOrientation(rotation: Int) =
 
-        // Collect the supported resolutions that are at least as big as the preview Surface
-        val bigEnough = arrayListOf<Size>()
-        // Collect the supported resolutions that are smaller than the preview Surface
-        val notBigEnough = arrayListOf<Size>()
-        val w = aspectRatio.width
-        val h = aspectRatio.height
-        for (option in choices) {
-            if (option.width <= maxWidth && option.height <= maxHeight &&
-                option.height == option.width * h / w
-            ) {
-                if (option.width >= textureViewWidth && option.height >= textureViewHeight) {
-                    bigEnough.add(option)
-                } else {
-                    notBigEnough.add(option)
-                }
-            }
-        }
+    // Sensor orientation is 90 for most devices, or 270 for some devices (eg. Nexus 5X)
+    // We have to take that into account and rotate JPEG properly.
+    // For devices with orientation of 90, we simply return our mapping from ORIENTATIONS.
+        // For devices with orientation of 270, we need to rotate the JPEG 180 degrees.
+        (ORIENTATIONS.get(rotation) + mSensorOrientation + 270) % 360
 
-        // Pick the smallest of those big enough. If there is no one big enough, pick the
-        // largest of those not big enough.
-
-        return when {
-            bigEnough.isNotEmpty() -> Collections.min(bigEnough, compareSizesByArea)
-            notBigEnough.isNotEmpty() -> Collections.max(notBigEnough, compareSizesByArea)
-            else -> {
-                Log.e("Camera", "Couldn't find any suitable preview size")
-                choices[0]
-            }
-        }
-    }
 
     private fun openBackgroundThread() {
         backgroundThread = HandlerThread("camera_background_thread")
@@ -509,6 +527,7 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
                         try {
 // When session is ready we start displaying preview.
                             this@Camera2.cameraCaptureSession = cameraCaptureSession
+                            //     cameraSessionClosed = false
 
 // Auto focus should be continuous for camera preview.
 
@@ -550,6 +569,42 @@ we set flash after the preview request is processed to ensure flash fires only d
 
     }
 
+/* For some reason, The code for firing flash in both methods below which is prescribed doesn't work on API level below PIE it maybe a device-specific issue as very common with Camera API
+   so I had to build my own code if the else block works well for your devices even below PIE I would recommend using it because that's
+   the official way and code is available for all levels >=21 as mentioned.
+*/
+
+    private fun flashOn(captureRequestBuilder: CaptureRequest.Builder) {
+        if (Build.VERSION.SDK_INT < 28) {
+            captureRequestBuilder.set(
+                CaptureRequest.FLASH_MODE,
+                CaptureRequest.FLASH_MODE_TORCH
+            )
+        } else {
+            captureRequestBuilder.set(
+                CaptureRequest.CONTROL_AE_MODE,
+                CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH
+            )
+        }
+
+    }
+
+    private fun flashAuto(captureRequestBuilder: CaptureRequest.Builder) {
+        if (Build.VERSION.SDK_INT < 28) {
+            captureRequestBuilder.set(
+                CaptureRequest.FLASH_MODE,
+                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+            )
+        } else {
+            captureRequestBuilder.set(
+                CaptureRequest.CONTROL_AE_MODE,
+                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+            )
+        }
+
+
+    }
+
 
     // sets flash mode for a capture request builder
     private fun setFlashMode(
@@ -564,14 +619,8 @@ we set flash after the preview request is processed to ensure flash fires only d
             )
         }
         when (flash) {
-            FLASH.ON -> captureRequestBuilder.set(
-                CaptureRequest.CONTROL_AE_MODE,
-                CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH
-            )
-            FLASH.AUTO -> captureRequestBuilder.set(
-                CaptureRequest.CONTROL_AE_MODE,
-                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
-            )
+            FLASH.ON -> flashOn(captureRequestBuilder)
+            FLASH.AUTO -> flashAuto(captureRequestBuilder)
             else -> captureRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
         }
     }
@@ -687,11 +736,16 @@ we set flash after the preview request is processed to ensure flash fires only d
 //            val surfaceTexture = textureView.surfaceTexture
 //            surfaceTexture.setDefaultBufferSize(previewSize!!.width, previewSize!!.height)
             captureBuilder.addTarget(surface!!)
+            // Use the same AE and AF modes as the preview.
             captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
 
 
             setFlashMode(captureBuilder, true)
 
+            // Orientation
+            val rotation = activity.windowManager.defaultDisplay.rotation
+
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION, getOrientation(rotation))
 
             cameraCaptureSession!!.stopRepeating()
             cameraCaptureSession!!.abortCaptures()
@@ -702,13 +756,11 @@ we set flash after the preview request is processed to ensure flash fires only d
                     result: TotalCaptureResult
                 ) {
                     if (textureView.isAvailable) {
-                        Handler(Looper.getMainLooper()).post {
-                            onBitmapReady(textureView.bitmap)
-                        }
+                        onBitmapReady(textureView.bitmap)
 
                         unlockPreview()
 
-                    } else onBitmapReady(null)
+                    }
 
 
                 }
@@ -728,14 +780,16 @@ we set flash after the preview request is processed to ensure flash fires only d
 //        isFlashSupported && (flash == FLASH.ON || flash == FLASH.AUTO) && cameraFacing == CameraCharacteristics.LENS_FACING_BACK
 
 
-    fun takePhoto(onBitmapReady: (Bitmap?) -> Unit) {
+    fun takePhoto(onBitmapReady: (Bitmap) -> Unit) {
+
         this.onBitmapReady = onBitmapReady
         lockPreview()
-
     }
 
-
 }
+
+
+
 
 
 
