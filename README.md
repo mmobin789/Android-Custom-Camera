@@ -1,5 +1,6 @@
 # Android Custom Camera
 :camera:
+
 Source code for a custom camera activity and modifiable wrapper around android camera 2 API to simplify usage.
 
 ## Features
