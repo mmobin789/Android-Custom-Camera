@@ -20,12 +20,13 @@ object Converters {
     @JvmStatic   // this annotation is required for caller class written in Java to recognize this method as static
     fun convertBitmapToFile(bitmap: Bitmap, onBitmapConverted: (File) -> Unit): Disposable {
         return Single.fromCallable {
-            compressBitmap(bitmap)!!
+            compressBitmap(bitmap)
         }.subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
             .subscribe({
-
-                Log.i("convertedPicturePath", it.path)
-                onBitmapConverted(it)
+                if (it != null) {
+                    Log.i("convertedPicturePath", it.path)
+                    onBitmapConverted(it)
+                }
             }, { it.printStackTrace() })
     }
 
