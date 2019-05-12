@@ -69,6 +69,7 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
                 }
                 STATE_WAITING_LOCK -> {
                     val afState = captureResult[CaptureResult.CONTROL_AF_STATE]
+
                     if (afState == null) {
                         captureStillPicture()
                     } else if (afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED || afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED) {
@@ -77,6 +78,7 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
                         if (aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED) {
                             cameraState = STATE_PICTURE_TAKEN
                             captureStillPicture()
+
                         } else runPrecaptureSequence()
                     }
                 }
@@ -258,28 +260,6 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
         override fun onError(camera: CameraDevice, error: Int) {
         }
     }
-
-//    private fun setupCamera() {
-//        try {
-//            for (cameraId in cameraManager.cameraIdList) {
-//                val cameraCharacteristics = cameraManager.getCameraCharacteristics(cameraId)
-//                val cameraFacing = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING)
-//                val flashSupport = cameraCharacteristics.get(CameraCharacteristics.FLASH_INFO_AVAILABLE)
-//                isFlashSupported = flashSupport != null && flashSupport == true
-//                if (cameraFacing == this.cameraFacing) {
-//                    val streamConfigurationMap = cameraCharacteristics.get(
-//                        CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
-//                    )
-//                    previewSize = streamConfigurationMap!!.getOutputSizes(SurfaceTexture::class.java)[0]
-//                    this.cameraId = cameraId
-//                    return
-//                }
-//            }
-//        } catch (e: CameraAccessException) {
-//            e.printStackTrace()
-//        }
-//
-//    }
 
     fun onResume() {
         openBackgroundThread()
@@ -536,7 +516,6 @@ class Camera2(private val activity: Activity, private val textureView: AutoFitTe
                                 CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
                             )
 
-
 // Finally, we start displaying the camera preview.
                             captureRequest = captureRequestBuilder!!.build()
 
@@ -575,7 +554,8 @@ we set flash after the preview request is processed to ensure flash fires only d
 */
 
     private fun flashOn(captureRequestBuilder: CaptureRequest.Builder) {
-        if (Build.VERSION.SDK_INT < 28) {
+        //  cameraManager.setTorchMode()
+        if (Build.VERSION.SDK_INT > 28) {
             captureRequestBuilder.set(
                 CaptureRequest.FLASH_MODE,
                 CaptureRequest.FLASH_MODE_TORCH
@@ -588,23 +568,6 @@ we set flash after the preview request is processed to ensure flash fires only d
         }
 
     }
-
-    private fun flashAuto(captureRequestBuilder: CaptureRequest.Builder) {
-        if (Build.VERSION.SDK_INT < 28) {
-            captureRequestBuilder.set(
-                CaptureRequest.FLASH_MODE,
-                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
-            )
-        } else {
-            captureRequestBuilder.set(
-                CaptureRequest.CONTROL_AE_MODE,
-                CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
-            )
-        }
-
-
-    }
-
 
     // sets flash mode for a capture request builder
     private fun setFlashMode(
@@ -620,7 +583,12 @@ we set flash after the preview request is processed to ensure flash fires only d
         }
         when (flash) {
             FLASH.ON -> flashOn(captureRequestBuilder)
-            FLASH.AUTO -> flashAuto(captureRequestBuilder)
+            FLASH.AUTO -> {
+                captureRequestBuilder.set(
+                    CaptureRequest.CONTROL_AE_MODE,
+                    CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH
+                )
+            }
             else -> captureRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF)
         }
     }
@@ -724,6 +692,12 @@ we set flash after the preview request is processed to ensure flash fires only d
     }
 
 
+    private fun captureBitmap() {
+        if (textureView.isAvailable) {
+            onBitmapReady(textureView.bitmap)
+        }
+    }
+
     /**
      * Capture a still picture. This method should be called when we get a response in
      * {@link #cameraCaptureCallback} from both {@link #lockPreview()}.
@@ -755,12 +729,9 @@ we set flash after the preview request is processed to ensure flash fires only d
                     request: CaptureRequest,
                     result: TotalCaptureResult
                 ) {
-                    if (textureView.isAvailable) {
-                        onBitmapReady(textureView.bitmap)
 
-                        unlockPreview()
-
-                    }
+                    captureBitmap()
+                    unlockPreview()
 
 
                 }
@@ -773,11 +744,14 @@ we set flash after the preview request is processed to ensure flash fires only d
 
 
     }
+// uncomment to use
 
-
-// Uncomment to use.
-//    fun isFlashEnabled() =
-//        isFlashSupported && (flash == FLASH.ON || flash == FLASH.AUTO) && cameraFacing == CameraCharacteristics.LENS_FACING_BACK
+//    fun isFlashAuto() =
+//        isFlashSupported && flash == FLASH.AUTO && cameraFacing == CameraCharacteristics.LENS_FACING_BACK
+//
+//
+//    fun isFlashON() =
+//        isFlashSupported && (flash == FLASH.ON) && cameraFacing == CameraCharacteristics.LENS_FACING_BACK
 
 
     fun takePhoto(onBitmapReady: (Bitmap) -> Unit) {

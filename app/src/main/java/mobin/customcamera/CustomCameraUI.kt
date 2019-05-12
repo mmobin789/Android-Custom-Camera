@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import io.reactivex.disposables.Disposable
 import kotlinx.android.synthetic.main.activity_custom_camera_ui.*
 import mobin.customcamera.core.Camera2
 import mobin.customcamera.core.Converters
@@ -15,6 +16,7 @@ import mobin.ui.R
 class CustomCameraUI : AppCompatActivity() {
 
     private lateinit var camera2: Camera2
+    private var disposable: Disposable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,7 +56,7 @@ class CustomCameraUI : AppCompatActivity() {
         iv_capture_image.setOnClickListener { v ->
             camera2.takePhoto {
                 Toast.makeText(v.context, "Saving Picture", Toast.LENGTH_SHORT).show()
-                Converters.convertBitmapToFile(it) { file ->
+                disposable = Converters.convertBitmapToFile(it) { file ->
                     Toast.makeText(v.context, "Saved Picture Path ${file.path}", Toast.LENGTH_SHORT).show()
                 }
 
@@ -99,6 +101,12 @@ class CustomCameraUI : AppCompatActivity() {
         // cameraPreview.resumeCamera()
         camera2.onResume()
         super.onResume()
+    }
+
+    override fun onDestroy() {
+        if (disposable != null)
+            disposable!!.dispose()
+        super.onDestroy()
     }
 
 
