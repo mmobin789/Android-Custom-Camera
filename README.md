@@ -19,7 +19,7 @@ It supports flash, returns a picture bitmap which can be saved as JPEG/Bitmap.
  
  
  ## Limitations
- - Camera2 API could cause device-specific issues on some devices.
+ - Camera2 API can cause device-specific issues.
  - May require handling for specific devices.
  - Tested on Lollipop, Oreo and Pie.
  
